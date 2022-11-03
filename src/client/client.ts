@@ -1,93 +1,137 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import Stats from "three/examples/jsm/libs/stats.module";
-import { GUI } from "dat.gui";
 
 const scene = new THREE.Scene();
-scene.add(new THREE.AxesHelper(5));
+scene.background = new THREE.Color(0x87ceeb);
+
+const ambientLight = new THREE.AmbientLight(0xaaaaaa);
+scene.add(ambientLight);
+
+const light1 = new THREE.PointLight();
+light1.position.set(10, 10, 10);
+light1.castShadow = true;
+light1.shadow.bias = -0.0002;
+light1.shadow.mapSize.height = 2048;
+light1.shadow.mapSize.width = 2048;
+scene.add(light1);
 
 const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
-  0.1,
-  1000
+  0.01,
+  100
 );
-camera.position.z = 10;
-camera.position.x = 10;
-camera.position.y = 10;
-// camera.lookAt(new THREE.Vector3(10, 0, 0));
+camera.position.set(1.75, 1.75, 3.5);
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
-
+renderer.shadowMap.enabled = true;
 document.body.append(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-// controls.addEventListener("change", render);
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.enableDamping = true;
 
-const geometry = new THREE.BoxGeometry();
-const material = new THREE.MeshBasicMaterial({
-  color: "#00ff00",
-  wireframe: true,
-});
-
-const cube = new THREE.Mesh(geometry, material);
-// cube.parent
-scene.add(cube);
-
-const stats = Stats();
-document.body.appendChild(stats.dom);
-
-const gui = new GUI();
-const cubeFolder = gui.addFolder("Cube");
-{
-  const cubeRotationFolder = cubeFolder.addFolder("Rotation");
-  cubeRotationFolder.add(cube.rotation, "x", 0, Math.PI * 2);
-  cubeRotationFolder.add(cube.rotation, "y", 0, Math.PI * 2);
-  cubeRotationFolder.add(cube.rotation, "z", 0, Math.PI * 2);
-  cubeRotationFolder.open();
-
-  const cubePositionFolder = cubeFolder.addFolder("Position");
-  cubePositionFolder.add(cube.position, "x", -10, 10, 2);
-  cubePositionFolder.add(cube.position, "y", -10, 10, 2);
-  cubePositionFolder.add(cube.position, "z", -10, 10, 2);
-  cubePositionFolder.open();
-
-  const cubeScaleFolder = cubeFolder.addFolder("Scale");
-  cubeScaleFolder.add(cube.scale, "x", -5, 5);
-  cubeScaleFolder.add(cube.scale, "y", -5, 5);
-  cubeScaleFolder.add(cube.scale, "z", -5, 5);
-  cubeScaleFolder.open();
-}
-cubeFolder.add(cube, "visible");
-cubeFolder.open();
-
-const cameraFolder = gui.addFolder("Camera");
-cameraFolder.add(camera.position, "z", 0, 10);
-cameraFolder.open();
+const planeGeometry = new THREE.PlaneGeometry(25, 25);
+const texture = new THREE.TextureLoader().load("/img/grid.png");
+const plane = new THREE.Mesh(
+  planeGeometry,
+  new THREE.MeshPhongMaterial({ map: texture })
+);
+plane.rotateX(-Math.PI / 2);
+plane.receiveShadow = true;
+scene.add(plane);
 
 window.addEventListener("resize", onWindowResize, false);
-animate();
-// render();
-
-function render() {
-  renderer.render(scene, camera);
-}
-
-function animate() {
-  requestAnimationFrame(animate);
-
-  cube.rotation.x += 0.01;
-  //   cube.rotation.y += 0.01;
-
-  render();
-
-  stats.update();
-}
-
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   render();
 }
+
+const cubeRenderTarget1 = new THREE.WebGLCubeRenderTarget(128, {
+  generateMipmaps: true,
+  minFilter: THREE.LinearMipmapLinearFilter,
+});
+const cubeRenderTarget2 = new THREE.WebGLCubeRenderTarget(128, {
+  generateMipmaps: true,
+  minFilter: THREE.LinearMipmapLinearFilter,
+});
+const cubeRenderTarget3 = new THREE.WebGLCubeRenderTarget(128, {
+  generateMipmaps: true,
+  minFilter: THREE.LinearMipmapLinearFilter,
+});
+const cubeCamera1 = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget1);
+const cubeCamera2 = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget2);
+const cubeCamera3 = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget3);
+
+const pivot1 = new THREE.Object3D();
+scene.add(pivot1);
+const pivot2 = new THREE.Object3D();
+scene.add(pivot2);
+const pivot3 = new THREE.Object3D();
+scene.add(pivot3);
+
+const material1 = new THREE.MeshPhongMaterial({
+  envMap: cubeRenderTarget1.texture,
+});
+const material2 = new THREE.MeshPhongMaterial({
+  envMap: cubeRenderTarget2.texture,
+});
+const material3 = new THREE.MeshPhongMaterial({
+  envMap: cubeRenderTarget3.texture,
+});
+
+const ball1 = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), material1);
+ball1.position.set(1, 1, 0);
+ball1.castShadow = true;
+ball1.receiveShadow = true;
+ball1.add(cubeCamera1);
+pivot1.add(ball1);
+
+const ball2 = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), material2);
+ball2.position.set(3.1, 1, 0);
+ball2.castShadow = true;
+ball2.receiveShadow = true;
+ball2.add(cubeCamera2);
+pivot2.add(ball2);
+
+const ball3 = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), material3);
+ball3.position.set(5.2, 1, 0);
+ball3.castShadow = true;
+ball3.receiveShadow = true;
+ball3.add(cubeCamera3);
+pivot3.add(ball3);
+
+const stats = Stats();
+document.body.appendChild(stats.dom);
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const delta = clock.getDelta();
+  ball1.rotateY(-0.2 * delta);
+  pivot1.rotateY(0.2 * delta);
+  ball2.rotateY(-0.3 * delta);
+  pivot2.rotateY(0.3 * delta);
+  ball3.rotateY(-0.4 * delta);
+  pivot3.rotateY(0.4 * delta);
+
+  orbitControls.update();
+
+  render();
+
+  // stats.update()
+}
+
+function render() {
+  cubeCamera1.update(renderer, scene);
+  cubeCamera2.update(renderer, scene);
+  cubeCamera3.update(renderer, scene);
+
+  renderer.render(scene, camera);
+}
+
+animate();
